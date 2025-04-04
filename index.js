@@ -33,7 +33,28 @@ bot.start(ctx => {
 // Обработка сообщений от пользователя
 bot.on("text", async (ctx) => {
 	const userId = ctx.from.id;
-	const message = ctx.message.text;
+	const message = ctx.message.text.trim();
+
+	//list
+	if (message === "/list") {
+		//console.log("find list");
+		
+		if (userId.toString() !== ADMIN_ID) {
+			ctx.reply("⛔ У вас нет доступа.");
+			return;
+		}
+		const users = await User.find();
+		if (users.length === 0) {
+			ctx.reply("👤 Список пользователей пуст.");
+		} else {
+			let response = "📋 Список пользователей:\n";
+			users.forEach(user => {
+				response += `🆔 ${user.telegramId}\n👤 ${user.name}, ${user.age} лет\n\n`;
+			});
+			ctx.reply(response);
+		}
+		return;
+	}
 
 	if (!userStates[userId]) return;
 
@@ -63,28 +84,34 @@ bot.on("text", async (ctx) => {
 });
 
 // Команда /list (только для админа)
-bot.command("list", async (ctx) => {
-	if (ctx.from.id.toString() !== ADMIN_ID) {
-		ctx.reply("⛔ У вас нет доступа.");
-		return;
-	}
+// bot.command("list", async (ctx) => {
+// 	if (ctx.from.id.toString() !== ADMIN_ID) {
+// 		ctx.reply("⛔ У вас нет доступа.");
+// 		return;
+// 	}
 
-	const users = await User.find();
-	if (users.length === 0) {
-		ctx.reply("👤 Список пользователей пуст.");
-	} else {
-		let response = "📋 Список пользователей:\n";
-		users.forEach(user => {
-			response += `🆔 ${user.telegramId}\n👤 ${user.name}, ${user.age} лет\n\n`;
-		});
-		ctx.reply(response);
-	}
-});
+// 	const users = await User.find();
+// 	if (users.length === 0) {
+// 		ctx.reply("👤 Список пользователей пуст.");
+// 	} else {
+// 		let response = "📋 Список пользователей:\n";
+// 		users.forEach(user => {
+// 			response += `🆔 ${user.telegramId}\n👤 ${user.name}, ${user.age} лет\n\n`;
+// 		});
+// 		ctx.reply(response);
+// 	}
+// });
 
 // Установка Webhook
 const WEBHOOK_URL = `https://${process.env.RENDER_DOMAIN}/telegram-bot`;
 bot.telegram.setWebhook(WEBHOOK_URL);
 app.use(bot.webhookCallback("/telegram-bot"));
+
+// Запуск бота в режиме polling for local test 
+// bot.telegram.deleteWebhook();
+// bot.launch();
+// console.log("🤖 Бот запущен в режиме polling");
+
 
 // Запуск сервера
 const PORT = process.env.PORT || 3000;
