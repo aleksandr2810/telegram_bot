@@ -1,107 +1,3 @@
-// require("dotenv").config();
-// const express = require("express");
-// const { Telegraf } = require("telegraf");
-// const mongoose = require("mongoose");
-
-// const bot = new Telegraf(process.env.BOT_TOKEN);
-// const app = express();
-// app.use(express.json());
-
-// const ADMIN_ID = process.env.ADMIN_ID; // ID администратора
-
-// // Подключение к MongoDB
-// mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-// 	.then(() => console.log("✅ MongoDB подключен"))
-// 	.catch(err => console.log("❌ Ошибка подключения:", err));
-
-// // Модель пользователя
-// const User = mongoose.model("User", new mongoose.Schema({
-// 	telegramId: String,
-// 	name: String,
-// 	age: Number,
-// }));
-
-// // Состояние пользователей
-// const userStates = {};
-
-// // Обработчик /start
-// bot.start(ctx => {
-// 	ctx.reply("Привет! Как вас зовут?");
-// 	userStates[ctx.from.id] = { step: "name" };
-// });
-
-// // Обработка сообщений от пользователя
-// bot.on("text", async (ctx) => {
-// 	const userId = ctx.from.id;
-// 	const message = ctx.message.text.trim();
-
-// 	//list
-// 	if (message === "/list") {
-// 		//console.log("find list");
-
-// 		if (userId.toString() !== ADMIN_ID) {
-// 			ctx.reply("⛔ У вас нет доступа.");
-// 			return;
-// 		}
-// 		const users = await User.find();
-// 		if (users.length === 0) {
-// 			ctx.reply("👤 Список пользователей пуст.");
-// 		} else {
-// 			let response = "📋 Список пользователей:\n";
-// 			users.forEach(user => {
-// 				response += `🆔 ${user.telegramId}\n👤 ${user.name}, ${user.age} лет\n\n`;
-// 			});
-// 			ctx.reply(response);
-// 		}
-
-// 		return;
-// 	}
-
-// 	if (!userStates[userId]) return;
-
-// 	if (userStates[userId].step === "name") {
-// 		userStates[userId].name = message;
-// 		userStates[userId].step = "age";
-// 		ctx.reply("Сколько вам лет?");
-// 	} else if (userStates[userId].step === "age") {
-// 		const age = parseInt(message);
-// 		if (isNaN(age) || age <= 0) {
-// 			ctx.reply("Введите корректный возраст.");
-// 			return;
-// 		}
-
-// 		userStates[userId].age = age;
-
-// 		// Сохранение в MongoDB
-// 		await User.create({
-// 			telegramId: userId,
-// 			name: userStates[userId].name,
-// 			age: userStates[userId].age,
-// 		});
-
-// 		ctx.reply(`Спасибо! Вы: ${userStates[userId].name}, ${userStates[userId].age} лет.`);
-// 		delete userStates[userId]; // Очистка состояния
-// 	}
-// });
-
-// Установка Webhook
-// const WEBHOOK_URL = `https://${process.env.RENDER_DOMAIN}/telegram-bot`;
-// bot.telegram.setWebhook(WEBHOOK_URL);
-// app.use(bot.webhookCallback("/telegram-bot"));
-
-// // Запуск бота в режиме polling for local test 
-// bot.telegram.deleteWebhook();
-// bot.launch();
-// console.log("🤖 Бот запущен в режиме polling");
-
-
-// // Запуск сервера
-// const PORT = process.env.PORT || 3000;
-// app.listen(PORT, () => {
-// 	console.log(`🚀 Бот работает на порту ${PORT}`);
-// });
-
-
 require("dotenv").config();
 const express = require("express");
 const { Telegraf, Markup } = require("telegraf");
@@ -114,20 +10,21 @@ app.use(express.json());
 
 const ADMIN_ID = process.env.ADMIN_ID;
 
+// Подключение к MongoDB
 mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
 	.then(() => console.log("✅ MongoDB подключен"))
 	.catch(err => console.log("❌ Ошибка подключения:", err));
 
-// Модель
+// Модель пользователя
 const User = mongoose.model("User", new mongoose.Schema({
 	telegramId: String,
 	name: String,
 	age: Number,
 }));
 
-// Временные состояния
+// Состояния пользователей и удаления
 const userStates = {};
-const pendingDeletes = {}; // { adminId: { telegramId, name } }
+const pendingDeletes = {};
 
 // /start
 bot.start(ctx => {
@@ -135,7 +32,7 @@ bot.start(ctx => {
 	userStates[ctx.from.id] = { step: "name" };
 });
 
-// Обработка текста
+// Обработка текстов
 bot.on("text", async (ctx) => {
 	const userId = ctx.from.id;
 	const message = ctx.message.text.trim();
@@ -164,7 +61,6 @@ bot.on("text", async (ctx) => {
 		return;
 	}
 
-	// Если не в процессе опроса — выход
 	if (!userStates[userId]) return;
 
 	if (userStates[userId].step === "name") {
@@ -191,7 +87,7 @@ bot.on("text", async (ctx) => {
 	}
 });
 
-// Обработка callback-кнопок
+// Обработка нажатий кнопок
 bot.on("callback_query", async (ctx) => {
 	const userId = ctx.from.id;
 	const data = ctx.callbackQuery.data;
@@ -216,8 +112,8 @@ bot.on("callback_query", async (ctx) => {
 		await ctx.editMessageText(
 			`❗ Вы уверены, что хотите удалить пользователя:\n👤 ${user.name} (${telegramId})?`,
 			Markup.inlineKeyboard([
-				Markup.button.callback("✅ Да, удалить", `delete_confirmed`),
-				Markup.button.callback("↩️ Отмена", `cancel`)
+				Markup.button.callback("✅ Да, удалить", "delete_confirmed"),
+				Markup.button.callback("↩️ Отмена", "cancel")
 			])
 		);
 
@@ -225,11 +121,11 @@ bot.on("callback_query", async (ctx) => {
 		return;
 	}
 
-	// Удаление после подтверждения
+	// Удаление подтверждено
 	if (data === "delete_confirmed") {
 		const pending = pendingDeletes[userId];
 		if (!pending) {
-			ctx.answerCbQuery("⛔️ Ошибка: нет данных для удаления.");
+			ctx.answerCbQuery("⛔️ Нет данных для удаления.");
 			return;
 		}
 
@@ -237,7 +133,7 @@ bot.on("callback_query", async (ctx) => {
 		delete pendingDeletes[userId];
 
 		if (result.deletedCount === 0) {
-			await ctx.editMessageText("❌ Пользователь не найден или уже удален.");
+			await ctx.editMessageText("❌ Пользователь не найден или уже удалён.");
 		} else {
 			await ctx.editMessageText(`✅ Пользователь ${pending.name} удалён.`);
 
@@ -252,12 +148,11 @@ bot.on("callback_query", async (ctx) => {
 				`🕒 Время: ${time}`
 			);
 		}
-
 		ctx.answerCbQuery();
 		return;
 	}
 
-	// Отмена
+	// Отмена удаления
 	if (data === "cancel") {
 		delete pendingDeletes[userId];
 		await ctx.editMessageText("❎ Удаление отменено.");
@@ -266,19 +161,15 @@ bot.on("callback_query", async (ctx) => {
 	}
 });
 
-//Установка Webhook
+// Webhook для продакшн
 const WEBHOOK_URL = `https://${process.env.RENDER_DOMAIN}/telegram-bot`;
 bot.telegram.setWebhook(WEBHOOK_URL);
 app.use(bot.webhookCallback("/telegram-bot"));
 
+console.log("🤖 Бот работает через Webhook:", WEBHOOK_URL);
 
-// polling (локальный запуск)
-//  bot.telegram.deleteWebhook();
-//  bot.launch();
-//  console.log("🤖 Бот запущен в режиме polling");
-
-// express сервер (если нужно)
+// Запуск express сервера
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-	console.log(`🚀 Бот работает на порту ${PORT}`);
+	console.log(`🚀 Сервер слушает порт ${PORT}`);
 });
